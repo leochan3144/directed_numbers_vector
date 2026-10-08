@@ -1,0 +1,910 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover" />
+  <title>Directed Number Vector Quest</title>
+  <style>
+    :root {
+      --bg: #0f172a;
+      --card-bg: #1e293b;
+      --text: #f8fafc;
+      --text-muted: #94a3b8;
+      --primary: #f59e0b; /* Amber target color */
+      --pos-vec: #10b981; /* Emerald Green (+) */
+      --neg-vec: #6366f1; /* Indigo Blue (-) */
+      --correct: #22c55e;
+      --wrong: #ef4444;
+      --border: #334155;
+    }
+
+    * {
+      box-sizing: border-box;
+      user-select: none;
+      -webkit-user-select: none;
+      -webkit-tap-highlight-color: transparent;
+      margin: 0;
+      padding: 0;
+    }
+
+    body {
+      background-color: var(--bg);
+      color: var(--text);
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+      min-height: 100vh;
+      min-height: 100dvh;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      padding: clamp(8px, 2vw, 24px);
+      overflow-x: hidden;
+    }
+
+    .app-container {
+      width: 100%;
+      max-width: 880px;
+      display: flex;
+      flex-direction: column;
+      gap: clamp(12px, 2.5vh, 20px);
+    }
+
+    .header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      background: var(--card-bg);
+      padding: 12px 20px;
+      border-radius: 16px;
+      border: 1px solid var(--border);
+    }
+
+    .title {
+      font-size: clamp(1rem, 2.5vw, 1.25rem);
+      font-weight: 800;
+      letter-spacing: 0.5px;
+      color: var(--text);
+    }
+
+    .stats {
+      display: flex;
+      gap: 16px;
+      font-size: clamp(0.875rem, 2vw, 1.1rem);
+      font-weight: 700;
+    }
+
+    .q-counter { color: var(--text-muted); }
+    .score-badge { color: var(--correct); }
+
+    .target-card {
+      background: var(--card-bg);
+      border-radius: 20px;
+      padding: clamp(14px, 2.5vh, 20px);
+      text-align: center;
+      border: 1px solid var(--border);
+      position: relative;
+      overflow: hidden;
+      box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.3);
+    }
+
+    .target-label {
+      font-size: clamp(0.75rem, 1.8vw, 0.95rem);
+      text-transform: uppercase;
+      letter-spacing: 1.5px;
+      color: var(--text-muted);
+      margin-bottom: 4px;
+    }
+
+    .target-number {
+      font-size: clamp(2.8rem, 8vw, 4.2rem);
+      font-weight: 900;
+      color: var(--primary);
+      text-shadow: 0 0 25px rgba(245, 158, 11, 0.4);
+      line-height: 1.1;
+    }
+
+    .instruction-text {
+      font-size: clamp(0.8rem, 2vw, 0.95rem);
+      color: var(--primary);
+      margin-top: 6px;
+      font-weight: 600;
+    }
+
+    .hint-row {
+      display: flex;
+      justify-content: center;
+      margin-top: 10px;
+    }
+
+    .hint-btn {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      background: transparent;
+      color: var(--primary);
+      border: 2px solid var(--primary);
+      border-radius: 999px;
+      padding: 6px 18px;
+      font-size: clamp(0.85rem, 2vw, 0.95rem);
+      font-weight: 800;
+      font-family: inherit;
+      cursor: pointer;
+      transition: background-color 0.15s ease, color 0.15s ease, transform 0.1s ease;
+    }
+
+    .hint-btn:hover { background: rgba(245, 158, 11, 0.12); }
+    .hint-btn:active { transform: scale(0.97); }
+    .hint-btn:disabled { opacity: 0.4; cursor: default; }
+    .hint-btn.used,
+    .hint-btn.used:disabled { background: var(--primary); color: #000; opacity: 1; }
+
+    .hint-text {
+      margin: 10px auto 0;
+      max-width: 520px;
+      font-size: clamp(0.85rem, 2.1vw, 1rem);
+      line-height: 1.45;
+      color: var(--text);
+      background: rgba(245, 158, 11, 0.1);
+      border: 1px solid rgba(245, 158, 11, 0.45);
+      border-radius: 12px;
+      padding: 10px 14px;
+    }
+
+    .hint-text[hidden] { display: none; }
+    .hint-text strong { color: var(--primary); }
+
+    /* Target marker drawn on the number line when a hint is used */
+    .hint-ring {
+      fill: none;
+      stroke: var(--primary);
+      stroke-width: 3;
+      animation: hintPulse 1.2s ease-in-out infinite;
+      transform-box: fill-box;
+      transform-origin: center;
+    }
+    .hint-label { fill: var(--primary); font-size: 15px; font-weight: 900; text-anchor: middle; }
+
+    @keyframes hintPulse {
+      0%, 100% { transform: scale(1); opacity: 1; }
+      50% { transform: scale(1.35); opacity: 0.55; }
+    }
+
+    .number-line-container {
+      background: var(--card-bg);
+      border-radius: 20px;
+      padding: clamp(12px, 2.5vh, 24px) 12px;
+      border: 2px dashed var(--border);
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      position: relative;
+      touch-action: none;
+      transition: border-color 0.2s ease, background-color 0.2s ease;
+    }
+
+    .number-line-container.drag-over {
+      border-color: var(--primary);
+      background-color: rgba(245, 158, 11, 0.08);
+    }
+
+    .drop-hint {
+      position: absolute;
+      top: 10px;
+      font-size: 0.85rem;
+      color: var(--text-muted);
+      pointer-events: none;
+      background: rgba(15, 23, 42, 0.7);
+      padding: 4px 14px;
+      border-radius: 12px;
+      border: 1px solid var(--border);
+    }
+
+    #number-line-svg {
+      width: 100%;
+      height: clamp(120px, 22vh, 170px);
+      overflow: visible;
+      display: block;
+    }
+
+    .line-axis { stroke: #64748b; stroke-width: 4; stroke-linecap: round; }
+    .tick { stroke: #64748b; stroke-width: 2.5; }
+    .tick-zero { stroke: #f8fafc; stroke-width: 3.5; }
+    .tick-text { fill: #94a3b8; font-size: 13px; font-weight: 600; text-anchor: middle; }
+    .tick-text-zero { fill: #f8fafc; font-size: 15px; font-weight: 800; }
+
+    /* Shared vector-arrow drawing (number line + cards + drag ghost) */
+    .vec-shape { stroke: none; }
+    .vec-pos .vec-shape { fill: var(--pos-vec); }
+    .vec-neg .vec-shape { fill: var(--neg-vec); }
+    .vec-divider { stroke: rgba(15, 23, 42, 0.55); stroke-width: 1.5; }
+    .vec-guide { stroke-width: 2; stroke-dasharray: 4 4; }
+    .vec-pos .vec-guide { stroke: var(--pos-vec); }
+    .vec-neg .vec-guide { stroke: var(--neg-vec); }
+    .vec-pos .vec-dot { fill: var(--pos-vec); }
+    .vec-neg .vec-dot { fill: var(--neg-vec); }
+
+    .options-grid {
+      display: grid;
+      grid-template-columns: repeat(2, 1fr);
+      gap: clamp(12px, 2.5vw, 20px);
+    }
+
+    /* Each option is a tile holding an arrow drawn to the SAME scale as the number line */
+    .option-card {
+      position: relative;
+      height: clamp(76px, 11vh, 96px);
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      gap: 8px;
+      background: rgba(255, 255, 255, 0.03);
+      border: 2px solid var(--border);
+      border-radius: 16px;
+      cursor: grab;
+      touch-action: none;
+      transition: transform 0.15s ease, border-color 0.15s ease, background-color 0.15s ease;
+    }
+
+    .option-card.vec-pos { --vec: var(--pos-vec); }
+    .option-card.vec-neg { --vec: var(--neg-vec); }
+
+    .option-card:hover {
+      border-color: var(--vec);
+      background: rgba(255, 255, 255, 0.06);
+    }
+
+    .option-card:active {
+      cursor: grabbing;
+      transform: scale(0.98);
+    }
+
+    .option-card svg { display: block; overflow: visible; }
+
+    .card-label {
+      font-weight: 800;
+      font-size: clamp(0.95rem, 2.6vw, 1.2rem);
+      color: var(--vec);
+      pointer-events: none;
+    }
+
+    .drag-ghost {
+      position: fixed;
+      pointer-events: none;
+      z-index: 1000;
+      transform: translate(-50%, -50%);
+      opacity: 0.9;
+      filter: drop-shadow(0 6px 10px rgba(0, 0, 0, 0.45));
+    }
+
+    .feedback-overlay {
+      position: absolute;
+      inset: 0;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: clamp(1.8rem, 5vw, 2.8rem);
+      font-weight: 900;
+      opacity: 0;
+      pointer-events: none;
+      transition: opacity 0.25s ease;
+      backdrop-filter: blur(8px);
+      z-index: 10;
+    }
+
+    .feedback-overlay.correct {
+      background: rgba(34, 197, 94, 0.92);
+      color: #ffffff;
+      opacity: 1;
+    }
+
+    .feedback-overlay.wrong {
+      background: rgba(239, 68, 68, 0.92);
+      color: #ffffff;
+      opacity: 1;
+    }
+
+    .toast {
+      position: fixed;
+      bottom: 24px;
+      left: 50%;
+      transform: translateX(-50%) translateY(100px);
+      background: var(--primary);
+      color: #000;
+      font-weight: 800;
+      padding: 12px 24px;
+      border-radius: 30px;
+      box-shadow: 0 10px 25px rgba(0,0,0,0.5);
+      transition: transform 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+      z-index: 90;
+      font-size: 0.95rem;
+      text-align: center;
+      white-space: nowrap;
+    }
+
+    .toast.show {
+      transform: translateX(-50%) translateY(0);
+    }
+
+    .game-over-modal {
+      position: fixed;
+      inset: 0;
+      background: rgba(15, 23, 42, 0.95);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 20px;
+      z-index: 100;
+      opacity: 0;
+      pointer-events: none;
+      transition: opacity 0.3s ease;
+    }
+
+    .game-over-modal.show {
+      opacity: 1;
+      pointer-events: auto;
+    }
+
+    .modal-content {
+      background: var(--card-bg);
+      border: 1px solid var(--border);
+      border-radius: 24px;
+      padding: 36px 28px;
+      text-align: center;
+      max-width: 420px;
+      width: 100%;
+      box-shadow: 0 20px 40px rgba(0,0,0,0.6);
+    }
+
+    .modal-title {
+      font-size: 2.2rem;
+      font-weight: 900;
+      margin-bottom: 8px;
+      color: var(--primary);
+    }
+
+    .modal-score {
+      font-size: 3.2rem;
+      font-weight: 900;
+      color: var(--text);
+      margin: 16px 0 24px;
+    }
+
+    .restart-btn {
+      background: var(--primary);
+      color: #000000;
+      font-size: 1.15rem;
+      font-weight: 800;
+      border: none;
+      border-radius: 14px;
+      padding: 16px 32px;
+      cursor: pointer;
+      width: 100%;
+      transition: transform 0.1s ease, filter 0.2s ease;
+    }
+
+    .restart-btn:active {
+      transform: scale(0.97);
+    }
+  </style>
+</head>
+<body>
+
+  <div class="app-container">
+    <!-- Header -->
+    <header class="header">
+      <div class="title">Vector Quest</div>
+      <div class="stats">
+        <span class="q-counter">Q: <span id="current-q">1</span>/<span id="total-q">10</span></span>
+        <span class="score-badge">Score: <span id="score-val">0</span></span>
+      </div>
+    </header>
+
+    <div class="target-card">
+      <div class="target-label">Target Directed Number</div>
+      <div class="target-number" id="target-display">-7</div>
+      <div class="instruction-text">🎯 Drag a vector arrow card onto the number line</div>
+      <div class="hint-row">
+        <button type="button" class="hint-btn" id="hint-btn">💡 Hint</button>
+      </div>
+      <div class="hint-text" id="hint-text" role="status" aria-live="polite" hidden></div>
+      <div class="feedback-overlay" id="feedback-overlay">Correct!</div>
+    </div>
+
+    <div class="number-line-container" id="drop-zone">
+      <div class="drop-hint">Drop Vector Here ⬇</div>
+      <svg id="number-line-svg" viewBox="0 0 800 150" preserveAspectRatio="xMidYMid meet">
+        <!-- Main Horizontal Axis -->
+        <line x1="40" y1="95" x2="760" y2="95" class="line-axis" />
+
+        <!-- Ticks and Labels Group -->
+        <g id="ticks-group"></g>
+
+        <!-- Dynamic Vector Arrow Group -->
+        <!-- Hint marker (target position) -->
+        <g id="hint-group"></g>
+
+        <g id="vector-group"></g>
+      </svg>
+    </div>
+
+    <div class="options-grid" id="options-container">
+      <!-- Dynamically generated block arrow cards -->
+    </div>
+  </div>
+
+  <!-- Toast Notification -->
+  <div class="toast" id="toast">Please drag the arrow card onto the number line!</div>
+
+  <!-- Game Over Modal -->
+  <div class="game-over-modal" id="game-over-modal">
+    <div class="modal-content">
+      <div class="modal-title">Quest Complete!</div>
+      <p style="color: var(--text-muted)">Your final vector score is:</p>
+      <div class="modal-score" id="final-score">0 / 10</div>
+      <button class="restart-btn" onclick="restartGame()">Play Again</button>
+    </div>
+  </div>
+
+  <script>
+    const AudioCtx = window.AudioContext || window.webkitAudioContext;
+    let audioCtx = null;
+
+    function initAudio() {
+      if (!audioCtx) audioCtx = new AudioCtx();
+    }
+
+    function playTone(freq, type, duration) {
+      try {
+        initAudio();
+        if (audioCtx.state === 'suspended') audioCtx.resume();
+        const osc = audioCtx.createOscillator();
+        const gain = audioCtx.createGain();
+        osc.type = type;
+        osc.frequency.setValueAtTime(freq, audioCtx.currentTime);
+        gain.gain.setValueAtTime(0.15, audioCtx.currentTime);
+        gain.gain.exponentialRampToValueAtTime(0.01, audioCtx.currentTime + duration);
+        osc.connect(gain);
+        gain.connect(audioCtx.destination);
+        osc.start();
+        osc.stop(audioCtx.currentTime + duration);
+      } catch (e) {}
+    }
+
+    function playSound(isCorrect) {
+      if (isCorrect) {
+        playTone(523.25, 'sine', 0.15); // C5
+        setTimeout(() => playTone(659.25, 'sine', 0.25), 100); // E5
+      } else {
+        playTone(220, 'sawtooth', 0.2); // A3
+        setTimeout(() => playTone(185, 'sawtooth', 0.3), 150); // F#3
+      }
+    }
+
+    const questions = [
+      { target: -7, options: [-7, +7, -4, -8] },
+      { target: 5,  options: [+5, -5, +3, -2] },
+      { target: -4, options: [-4, +4, -2, +6] },
+      { target: 3,  options: [+3, -3, +7, -5] },
+      { target: -9, options: [-9, +9, -5, +2] },
+      { target: 8,  options: [+8, -8, +5, -6] },
+      { target: -2, options: [-2, +2, -8, +3] },
+      { target: 6,  options: [+6, -6, +9, -4] },
+      { target: -5, options: [-5, +5, -1, +8] },
+      { target: 10, options: [+10, -10, +6, -8] }
+    ];
+
+    let currentQIndex = 0;
+    let score = 0;
+    let isTransitioning = false;
+
+    // SVG Axis Layout Constants (all in SVG user units)
+    const SVG_NS = 'http://www.w3.org/2000/svg';
+    const originX = 400;      // x of '0'
+    const tickSpacing = 34;   // user units per 1 unit on the line
+    const axisY = 95;
+    const vectorY = axisY - 38;
+
+    // Arrow geometry, shared by the number line, the cards and the drag ghost
+    const ARROW = { thick: 10, head: 18, headHalf: 12 };
+
+    function getX(val) {
+      return originX + val * tickSpacing;
+    }
+
+    // Current on-screen size of one unit on the number line, in CSS pixels.
+    function getUnitScale() {
+      const svg = document.getElementById('number-line-svg');
+      const ctm = svg.getScreenCTM && svg.getScreenCTM();
+      if (ctm && ctm.a > 0) return ctm.a;            // px per user unit
+      const r = svg.getBoundingClientRect();
+      return Math.min(r.width / 800, r.height / 150) || 1;
+    }
+
+    // Polygon for an arrow whose TAIL is at x=0 and whose TIP is exactly at x=len.
+    // len may be negative (points left). Coordinates are SVG user units.
+    function arrowPoints(len) {
+      const dir = Math.sign(len) || 1;
+      const L = Math.abs(len);
+      const t = ARROW.thick / 2;
+      const h = Math.min(ARROW.head, L * 0.6);
+      const hh = ARROW.headHalf;
+      const pts = [
+        [0, -t], [L - h, -t], [L - h, -hh], [L, 0],
+        [L - h, hh], [L - h, t], [0, t]
+      ];
+      return pts.map(([x, y]) => `${x * dir},${y}`).join(' ');
+    }
+
+    // Draws arrow pieces (body + head + unit dividers) into group g, tail at local 0.
+    function fillArrowGroup(g, len, unitsShown) {
+      g.innerHTML = '';
+      const poly = document.createElementNS(SVG_NS, 'polygon');
+      poly.setAttribute('points', arrowPoints(len));
+      poly.setAttribute('class', 'vec-shape');
+      g.appendChild(poly);
+
+      // Thin dividers at every whole unit along the body so length can be counted
+      const dir = Math.sign(len) || 1;
+      const L = Math.abs(len);
+      const h = Math.min(ARROW.head, L * 0.6);
+      for (let k = 1; k < unitsShown; k++) {
+        const x = k * tickSpacing;
+        if (x >= L - h - 1) break;
+        const d = document.createElementNS(SVG_NS, 'line');
+        d.setAttribute('x1', x * dir);
+        d.setAttribute('x2', x * dir);
+        d.setAttribute('y1', -ARROW.thick / 2);
+        d.setAttribute('y2', ARROW.thick / 2);
+        d.setAttribute('class', 'vec-divider');
+        g.appendChild(d);
+      }
+    }
+
+    // Stand-alone <svg> of a vector, drawn at the number line's on-screen scale,
+    // so its tail-to-tip length is exactly |val| units of the number line.
+    function buildCardArrow(val) {
+      const scale = getUnitScale();
+      const len = val * tickSpacing;
+      const L = Math.abs(len);
+      const pad = 2;
+      const vbX = (val > 0 ? 0 : -L) - pad;
+      const vbY = -ARROW.headHalf - pad;
+      const vbW = L + pad * 2;
+      const vbH = ARROW.headHalf * 2 + pad * 2;
+
+      const svg = document.createElementNS(SVG_NS, 'svg');
+      svg.setAttribute('viewBox', `${vbX} ${vbY} ${vbW} ${vbH}`);
+      svg.setAttribute('width', (vbW * scale).toFixed(2));
+      svg.setAttribute('height', (vbH * scale).toFixed(2));
+      svg.setAttribute('class', val > 0 ? 'vec-pos' : 'vec-neg');
+      svg.setAttribute('aria-hidden', 'true');
+
+      const g = document.createElementNS(SVG_NS, 'g');
+      fillArrowGroup(g, len, Math.abs(val));
+      svg.appendChild(g);
+      return svg;
+    }
+
+    function setupNumberLine() {
+      const ticksGroup = document.getElementById('ticks-group');
+      ticksGroup.innerHTML = '';
+
+      for (let i = -10; i <= 10; i++) {
+        const x = getX(i);
+        const isZero = i === 0;
+
+        const tick = document.createElementNS(SVG_NS, 'line');
+        tick.setAttribute('x1', x);
+        tick.setAttribute('y1', axisY - (isZero ? 14 : 7));
+        tick.setAttribute('x2', x);
+        tick.setAttribute('y2', axisY + (isZero ? 14 : 7));
+        tick.setAttribute('class', isZero ? 'tick-zero' : 'tick');
+        ticksGroup.appendChild(tick);
+
+        const text = document.createElementNS(SVG_NS, 'text');
+        text.setAttribute('x', x);
+        text.setAttribute('y', axisY + 32);
+        text.setAttribute('class', isZero ? 'tick-text-zero' : 'tick-text');
+        text.textContent = i > 0 ? `+${i}` : `${i}`;
+        ticksGroup.appendChild(text);
+      }
+    }
+
+    let vectorAnim = null;
+
+    function drawVector(val) {
+      const vectorGroup = document.getElementById('vector-group');
+      if (vectorAnim) cancelAnimationFrame(vectorAnim);
+      vectorGroup.innerHTML = '';
+      if (val === 0) return;
+
+      vectorGroup.setAttribute('class', val > 0 ? 'vec-pos' : 'vec-neg');
+
+      // Origin dot
+      const dot = document.createElementNS(SVG_NS, 'circle');
+      dot.setAttribute('cx', originX);
+      dot.setAttribute('cy', vectorY);
+      dot.setAttribute('r', 5);
+      dot.setAttribute('class', 'vec-dot');
+
+      const arrowG = document.createElementNS(SVG_NS, 'g');
+      arrowG.setAttribute('transform', `translate(${originX}, ${vectorY})`);
+      vectorGroup.appendChild(arrowG);
+      vectorGroup.appendChild(dot);
+
+      const finalLen = val * tickSpacing;
+      const duration = 380;
+      const t0 = performance.now();
+
+      const step = (now) => {
+        const p = Math.min(1, (now - t0) / duration);
+        const eased = 1 - Math.pow(1 - p, 3);
+        fillArrowGroup(arrowG, finalLen * eased, Math.abs(val));
+        if (p < 1) {
+          vectorAnim = requestAnimationFrame(step);
+        } else {
+          vectorAnim = null;
+          // Dashed guide from the tip straight down to its tick, plus a marker on the axis
+          const endX = getX(val);
+          const guide = document.createElementNS(SVG_NS, 'line');
+          guide.setAttribute('x1', endX);
+          guide.setAttribute('x2', endX);
+          guide.setAttribute('y1', vectorY);
+          guide.setAttribute('y2', axisY);
+          guide.setAttribute('class', 'vec-guide');
+          vectorGroup.insertBefore(guide, arrowG);
+
+          const mark = document.createElementNS(SVG_NS, 'circle');
+          mark.setAttribute('cx', endX);
+          mark.setAttribute('cy', axisY);
+          mark.setAttribute('r', 6);
+          mark.setAttribute('class', 'vec-dot');
+          vectorGroup.appendChild(mark);
+        }
+      };
+      vectorAnim = requestAnimationFrame(step);
+    }
+
+    function clearVector() {
+      if (vectorAnim) cancelAnimationFrame(vectorAnim);
+      vectorAnim = null;
+      document.getElementById('vector-group').innerHTML = '';
+    }
+
+    function showToast() {
+      const toast = document.getElementById('toast');
+      toast.classList.add('show');
+      setTimeout(() => toast.classList.remove('show'), 2200);
+    }
+
+    function shuffle(arr) {
+      const a = [...arr];
+      for (let i = a.length - 1; i > 0; i--) {
+        const j = Math.floor(Math.random() * (i + 1));
+        [a[i], a[j]] = [a[j], a[i]];
+      }
+      return a;
+    }
+
+    function formatSigned(n) {
+      return n > 0 ? `+${n}` : `${n}`;
+    }
+
+    function hideHint() {
+      document.getElementById('hint-group').innerHTML = '';
+      const txt = document.getElementById('hint-text');
+      txt.hidden = true;
+      txt.innerHTML = '';
+      const btn = document.getElementById('hint-btn');
+      btn.classList.remove('used');
+      btn.textContent = '💡 Hint';
+      btn.disabled = false;
+    }
+
+    function showHint() {
+      if (isTransitioning) return;
+      const target = questions[currentQIndex].target;
+      const n = Math.abs(target);
+      const unitWord = n === 1 ? 'unit' : 'units';
+      const side = target > 0 ? 'RIGHT' : 'LEFT';
+      const colour = target > 0 ? 'green' : 'blue';
+
+      const txt = document.getElementById('hint-text');
+      txt.innerHTML = `<strong>${formatSigned(target)}</strong> is <strong>${n} ${unitWord}</strong> to the <strong>${side}</strong> of 0. ` +
+        `Look for the ${colour} arrow pointing ${side.toLowerCase()} that is ${n} ${unitWord} long — its tip will land on the glowing mark.`;
+      txt.hidden = false;
+
+      // Glowing ring on the target number of the number line
+      const g = document.getElementById('hint-group');
+      g.innerHTML = '';
+      const x = getX(target);
+      const ring = document.createElementNS(SVG_NS, 'circle');
+      ring.setAttribute('cx', x);
+      ring.setAttribute('cy', axisY);
+      ring.setAttribute('r', 11);
+      ring.setAttribute('class', 'hint-ring');
+      g.appendChild(ring);
+
+      const label = document.createElementNS(SVG_NS, 'text');
+      label.setAttribute('x', x);
+      label.setAttribute('y', axisY + 32);
+      label.setAttribute('class', 'hint-label');
+      label.textContent = formatSigned(target);
+      g.appendChild(label);
+
+      const btn = document.getElementById('hint-btn');
+      btn.classList.add('used');
+      btn.textContent = '💡 Hint shown';
+      btn.disabled = true;
+    }
+
+    function loadQuestion() {
+      isTransitioning = false;
+      clearVector();
+      hideHint();
+
+      const q = questions[currentQIndex];
+      document.getElementById('current-q').textContent = currentQIndex + 1;
+      document.getElementById('target-display').textContent = q.target > 0 ? `+${q.target}` : `${q.target}`;
+
+      const optionsContainer = document.getElementById('options-container');
+      optionsContainer.innerHTML = '';
+
+      shuffle(q.options).forEach(val => {
+        const absVal = Math.abs(val);
+        const card = document.createElement('div');
+        card.className = `option-card ${val > 0 ? 'vec-pos' : 'vec-neg'}`;
+        card.dataset.value = val;
+        card.setAttribute('aria-label', `${absVal} ${absVal === 1 ? 'unit' : 'units'} ${val > 0 ? 'right' : 'left'}`);
+
+        card.appendChild(buildCardArrow(val));
+
+        const label = document.createElement('div');
+        label.className = 'card-label';
+        label.textContent = `${absVal} ${absVal === 1 ? 'unit' : 'units'}`;
+        card.appendChild(label);
+
+        setupDragAndDrop(card, val);
+        optionsContainer.appendChild(card);
+      });
+    }
+
+    // Keep card arrows at the number line's scale when the window is resized/rotated
+    function rescaleCardArrows() {
+      document.querySelectorAll('.option-card').forEach(card => {
+        const val = Number(card.dataset.value);
+        const old = card.querySelector('svg');
+        if (old) card.replaceChild(buildCardArrow(val), old);
+      });
+    }
+
+    let activeGhost = null;
+
+    function pointOf(evt) {
+      if (evt.clientX != null) return { x: evt.clientX, y: evt.clientY };
+      const t = (evt.touches && evt.touches[0]) || (evt.changedTouches && evt.changedTouches[0]);
+      return t ? { x: t.clientX, y: t.clientY } : { x: NaN, y: NaN };
+    }
+
+    function setupDragAndDrop(card, val) {
+      const dropZone = document.getElementById('drop-zone');
+
+      const onPointerDown = (e) => {
+        if (isTransitioning || activeGhost) return;
+        initAudio();
+
+        let hasMoved = false;
+        const start = pointOf(e);
+
+        const onPointerMove = (moveEvt) => {
+          const { x: cx, y: cy } = pointOf(moveEvt);
+
+          if (Math.hypot(cx - start.x, cy - start.y) > 8) hasMoved = true;
+
+          if (hasMoved) {
+            if (!activeGhost) {
+              // Ghost is the to-scale arrow itself, built fresh at the current scale
+              activeGhost = buildCardArrow(val);
+              activeGhost.classList.add('drag-ghost');
+              document.body.appendChild(activeGhost);
+              dropZone.classList.add('drag-over');
+            }
+            activeGhost.style.left = `${cx}px`;
+            activeGhost.style.top = `${cy}px`;
+          }
+        };
+
+        const cleanup = () => {
+          document.removeEventListener('pointermove', onPointerMove);
+          document.removeEventListener('pointerup', onPointerUp);
+          document.removeEventListener('pointercancel', onPointerCancel);
+          dropZone.classList.remove('drag-over');
+          if (activeGhost) {
+            activeGhost.remove();
+            activeGhost = null;
+          }
+        };
+
+        const onPointerCancel = () => cleanup();
+
+        const onPointerUp = (upEvt) => {
+          cleanup();
+
+          if (!hasMoved) {
+            showToast();
+            return;
+          }
+
+          const { x: cx, y: cy } = pointOf(upEvt);
+          const dzRect = dropZone.getBoundingClientRect();
+          if (cx >= dzRect.left && cx <= dzRect.right && cy >= dzRect.top && cy <= dzRect.bottom) {
+            handleSelection(val);
+          }
+        };
+
+        document.addEventListener('pointermove', onPointerMove);
+        document.addEventListener('pointerup', onPointerUp);
+        document.addEventListener('pointercancel', onPointerCancel);
+      };
+
+      card.addEventListener('pointerdown', onPointerDown);
+    }
+
+    function handleSelection(selectedValue) {
+      if (isTransitioning) return;
+      isTransitioning = true;
+      document.getElementById('hint-btn').disabled = true;
+
+      const q = questions[currentQIndex];
+      const isCorrect = selectedValue === q.target;
+
+      if (isCorrect) score++;
+      document.getElementById('score-val').textContent = score;
+
+      drawVector(selectedValue);
+      playSound(isCorrect);
+
+      const overlay = document.getElementById('feedback-overlay');
+      overlay.textContent = isCorrect ? 'Correct!' : 'Incorrect!';
+      overlay.className = `feedback-overlay ${isCorrect ? 'correct' : 'wrong'}`;
+
+      setTimeout(() => {
+        overlay.className = 'feedback-overlay';
+        currentQIndex++;
+
+        if (currentQIndex < questions.length) {
+          loadQuestion();
+        } else {
+          showGameOver();
+        }
+      }, 1300);
+    }
+
+    function showGameOver() {
+      document.getElementById('final-score').textContent = `${score} / ${questions.length}`;
+      document.getElementById('game-over-modal').classList.add('show');
+    }
+
+    function restartGame() {
+      currentQIndex = 0;
+      score = 0;
+      document.getElementById('score-val').textContent = score;
+      document.getElementById('game-over-modal').classList.remove('show');
+      loadQuestion();
+    }
+
+    // Initialize application
+    document.getElementById('total-q').textContent = questions.length;
+    document.getElementById('hint-btn').addEventListener('click', showHint);
+    setupNumberLine();
+    loadQuestion();
+
+    if ('ResizeObserver' in window) {
+      new ResizeObserver(rescaleCardArrows).observe(document.getElementById('number-line-svg'));
+    } else {
+      window.addEventListener('resize', rescaleCardArrows);
+    }
+  </script>
+</body>
+</html>
